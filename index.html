@@ -8,24 +8,77 @@
 <link rel="canonical" href="https://design.iec62443.au/">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="styles.css">
+<meta name="keywords" content="IEC 62443 zone and conduit diagram, zone and conduit drawing tool, IEC 62443-3-2, ZCR 3, zones and conduits, security level target, SL-T vector, CLC TS 50701, OT security architecture, IACS security zones, Purdue model diagram, security zone partitioning, data diode diagram, OT network segmentation, free 62443 tool, Visio zone conduit template">
 <meta property="og:title" content="Zone &amp; Conduit Designer">
 <meta property="og:description" content="Draw IEC 62443 zone and conduit diagrams in your browser. SL-T vectors, safety zones, Purdue bands, Visio/draw.io/SVG/PNG export. Fully client-side.">
 <meta property="og:url" content="https://design.iec62443.au/">
 <meta property="og:type" content="website">
+<meta property="og:site_name" content="Zone &amp; Conduit Designer">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Zone &amp; Conduit Designer - IEC 62443 diagrams in your browser">
+<meta name="twitter:description" content="Free client-side tool for IEC 62443-3-2 / CLC TS 50701 zone and conduit diagrams. SL-T vectors, safety zones, Purdue bands, Visio and draw.io export. Nothing uploaded.">
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
-  "@type": "WebApplication",
-  "name": "Zone & Conduit Designer",
-  "url": "https://design.iec62443.au/",
-  "applicationCategory": "DesignApplication",
-  "operatingSystem": "Any (browser)",
-  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
-  "description": "Client-side designer for IEC 62443-3-2 zone and conduit diagrams: zones, subsystems, conduits, SL-T vectors, safety designations, Purdue levels. Exports Visio VSDX, draw.io, SVG, PNG and XML. All data stays in the browser."
+  "@graph": [
+    {
+      "@type": "WebApplication",
+      "@id": "https://design.iec62443.au/#app",
+      "name": "Zone & Conduit Designer",
+      "url": "https://design.iec62443.au/",
+      "applicationCategory": "DesignApplication",
+      "operatingSystem": "Any (browser)",
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+      "description": "Client-side designer for IEC 62443-3-2 zone and conduit diagrams: zones, subsystems, conduits, SL-T vectors, safety designations, Purdue levels. Exports Visio VSDX, draw.io, SVG, PNG and XML. All data stays in the browser.",
+      "publisher": { "@type": "Organization", "name": "iec62443.au", "url": "https://iec62443.au/" }
+    },
+    {
+      "@type": "FAQPage",
+      "@id": "https://design.iec62443.au/#faq",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "What is a zone and conduit diagram?",
+          "acceptedAnswer": { "@type": "Answer", "text": "It is the drawing produced when a system under consideration (SuC) is partitioned per IEC 62443-3-2. Zones group assets that share common security requirements; conduits group the communication channels that connect zones. The partitioning step is ZCR 3 of the standard, and the diagram, together with the documented characteristics of each zone and conduit, forms part of the cybersecurity requirements specification." }
+        },
+        {
+          "@type": "Question",
+          "name": "What should be documented for each zone and conduit?",
+          "acceptedAnswer": { "@type": "Answer", "text": "The standard asks for a name and unique identifier, the accountable organisation, the logical boundary, the physical boundary where applicable, a safety designation, all logical and physical access points, the data flows at those access points, the connected zones or conduits, and the list of assets. The detailed risk assessment then adds a target security level (SL-T) for each zone and conduit. This tool records all of these and exports them as a CSV register." }
+        },
+        {
+          "@type": "Question",
+          "name": "What is SL-T and what do IAC, UC, SI, DC, RDF, TRE and RA mean?",
+          "acceptedAnswer": { "@type": "Answer", "text": "SL-T is the target security level assigned to a zone or conduit by the risk assessment, on a scale of 0 to 4. It is properly a vector of seven values, one per foundational requirement from IEC 62443-3-3: identification and authentication control (IAC), use control (UC), system integrity (SI), data confidentiality (DC), restricted data flow (RDF), timely response to events (TRE) and resource availability (RA). A zone can also have no SL-T, for example when its risk is covered by a code of practice." }
+        },
+        {
+          "@type": "Question",
+          "name": "Does my diagram leave my browser?",
+          "acceptedAnswer": { "@type": "Answer", "text": "No. The tool is plain static HTML and JavaScript with no server component, no accounts and no analytics beyond standard web logs. Work autosaves to your browser's local storage on your own machine, and every export file is generated locally in the browser." }
+        },
+        {
+          "@type": "Question",
+          "name": "Can I open the diagrams in Visio or draw.io?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Yes. Export as a native Visio .vsdx file or a draw.io .drawio file and keep editing there, or as SVG and PNG for reports and slides. The XML export keeps every attribute losslessly and can be re-imported into the tool or shared with a colleague." }
+        },
+        {
+          "@type": "Question",
+          "name": "Is this an official IEC or ISA tool?",
+          "acceptedAnswer": { "@type": "Answer", "text": "No. It is an independent free tool, not affiliated with or endorsed by the IEC, ISA or CENELEC. It draws the documentation the standards describe; it is not a substitute for the standards themselves or for performing a risk assessment." }
+        },
+        {
+          "@type": "Question",
+          "name": "How does CLC TS 50701 relate to IEC 62443?",
+          "acceptedAnswer": { "@type": "Answer", "text": "CLC/TS 50701 applies the IEC 62443 approach to railway applications, and its zone and conduit partitioning follows IEC 62443-3-2. The diagrams this tool draws follow the visual conventions of the TS 50701 figures: dark rounded zones, grey subsystem groupings, pale conduit links and Purdue level bands, so they read naturally in both rail and general OT contexts." }
+        }
+      ]
+    }
+  ]
 }
 </script>
 </head>
 <body>
+<div id="appview">
 <header class="top">
   <h1><span class="brand">design.iec62443.au</span> Zone &amp; Conduit Designer</h1>
   <div class="toolbar" role="toolbar" aria-label="Tools">
@@ -71,6 +124,73 @@
     <form id="propForm" hidden autocomplete="off"></form>
   </aside>
 </main>
+</div>
+
+<section class="seo">
+  <div class="seo-inner">
+    <h2>Zone and conduit diagrams, straight from the standard</h2>
+    <p>When IEC 62443-3-2 partitions a system under consideration into <strong>zones and conduits</strong>
+    (ZCR 3), the output is a drawing plus a register of characteristics for every zone and conduit.
+    Most practitioners build both by hand in Visio or draw.io. This tool is a purpose-built,
+    free alternative: draw zones (nestable, with grey subsystem groupings), connect them with
+    gateway, filtering or unidirectional data-diode conduits in the visual style of the
+    CLC/TS 50701 figures, lay optional Purdue level bands behind the diagram, and record the
+    attributes the standard asks for as you go - accountable organisation, boundaries, safety
+    designation, access points, data flows, assets, and a target security level (SL-T) as the
+    seven-value vector over the foundational requirements.</p>
+    <p>Everything runs in your browser: work autosaves to local storage, nothing is uploaded,
+    and the Tables view turns the diagram into an asset register and a zone and conduit
+    characteristics register, each downloadable as CSV. Export the drawing as a native Visio
+    .vsdx, a draw.io file, SVG or PNG, and as lossless XML you can re-import or share.
+    A worked example (a small water treatment plant) loads on first visit.</p>
+
+    <h2 id="faq">Frequently asked questions</h2>
+    <h3>What is a zone and conduit diagram?</h3>
+    <p>It is the drawing produced when a system under consideration (SuC) is partitioned per
+    IEC 62443-3-2. Zones group assets that share common security requirements; conduits group
+    the communication channels that connect zones. The partitioning step is ZCR 3 of the
+    standard, and the diagram, together with the documented characteristics of each zone and
+    conduit, forms part of the cybersecurity requirements specification.</p>
+    <h3>What should be documented for each zone and conduit?</h3>
+    <p>The standard asks for a name and unique identifier, the accountable organisation, the
+    logical boundary, the physical boundary where applicable, a safety designation, all
+    logical and physical access points, the data flows at those access points, the connected
+    zones or conduits, and the list of assets. The detailed risk assessment then adds a
+    target security level (SL-T) for each zone and conduit. This tool records all of these
+    and exports them as a CSV register.</p>
+    <h3>What is SL-T and what do IAC, UC, SI, DC, RDF, TRE and RA mean?</h3>
+    <p>SL-T is the target security level assigned to a zone or conduit by the risk
+    assessment, on a scale of 0 to 4. It is properly a vector of seven values, one per
+    foundational requirement from IEC 62443-3-3: identification and authentication control
+    (IAC), use control (UC), system integrity (SI), data confidentiality (DC), restricted
+    data flow (RDF), timely response to events (TRE) and resource availability (RA). A zone
+    can also have no SL-T, for example when its risk is covered by a code of practice.</p>
+    <h3>Does my diagram leave my browser?</h3>
+    <p>No. The tool is plain static HTML and JavaScript with no server component, no accounts
+    and no analytics beyond standard web logs. Work autosaves to your browser's local storage
+    on your own machine, and every export file is generated locally in the browser.</p>
+    <h3>Can I open the diagrams in Visio or draw.io?</h3>
+    <p>Yes. Export as a native Visio .vsdx file or a draw.io .drawio file and keep editing
+    there, or as SVG and PNG for reports and slides. The XML export keeps every attribute
+    losslessly and can be re-imported into the tool or shared with a colleague.</p>
+    <h3>Is this an official IEC or ISA tool?</h3>
+    <p>No. It is an independent free tool, not affiliated with or endorsed by the IEC, ISA or
+    CENELEC. It draws the documentation the standards describe; it is not a substitute for
+    the standards themselves or for performing a risk assessment.</p>
+    <h3>How does CLC TS 50701 relate to IEC 62443?</h3>
+    <p>CLC/TS 50701 applies the IEC 62443 approach to railway applications, and its zone and
+    conduit partitioning follows IEC 62443-3-2. The diagrams this tool draws follow the
+    visual conventions of the TS 50701 figures: dark rounded zones, grey subsystem groupings,
+    pale conduit links and Purdue level bands, so they read naturally in both rail and
+    general OT contexts.</p>
+
+    <p class="seo-footer">Part of <a href="https://iec62443.au/">iec62443.au</a>, an independent
+    IEC 62443 reference. Source on
+    <a href="https://github.com/adamwoodland2/design.iec62443.au" rel="noopener noreferrer">GitHub</a> (MIT).
+    IEC 62443 is the property of the IEC and ISA; CLC/TS 50701 of CENELEC - referenced here
+    only to describe what the diagrams depict.</p>
+  </div>
+</section>
 
 <dialog id="fileDlg">
   <h2>File</h2>
