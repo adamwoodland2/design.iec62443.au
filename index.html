@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Zone &amp; Conduit Designer - IEC 62443 / CLC TS 50701 diagrams</title>
+<meta name="description" content="Free client-side designer for IEC 62443-3-2 zone and conduit diagrams. Draw zones, subsystems and conduits with SL-T vectors, safety designations and Purdue levels. Saves in your browser; exports Visio, draw.io, SVG, PNG and XML. Nothing is uploaded.">
+<link rel="canonical" href="https://design.iec62443.au/">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="styles.css">
+<meta property="og:title" content="Zone &amp; Conduit Designer">
+<meta property="og:description" content="Draw IEC 62443 zone and conduit diagrams in your browser. SL-T vectors, safety zones, Purdue bands, Visio/draw.io/SVG/PNG export. Fully client-side.">
+<meta property="og:url" content="https://design.iec62443.au/">
+<meta property="og:type" content="website">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "Zone & Conduit Designer",
+  "url": "https://design.iec62443.au/",
+  "applicationCategory": "DesignApplication",
+  "operatingSystem": "Any (browser)",
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+  "description": "Client-side designer for IEC 62443-3-2 zone and conduit diagrams: zones, subsystems, conduits, SL-T vectors, safety designations, Purdue levels. Exports Visio VSDX, draw.io, SVG, PNG and XML. All data stays in the browser."
+}
+</script>
+</head>
+<body>
+<header class="top">
+  <h1><span class="brand">design.iec62443.au</span> Zone &amp; Conduit Designer</h1>
+  <div class="toolbar" role="toolbar" aria-label="Tools">
+    <button id="toolSelect" class="tool active" title="Select / move (V)">Select</button>
+    <button id="toolZone" class="tool" title="Draw a zone (Z)">+ Zone</button>
+    <button id="toolSubsystem" class="tool" title="Draw a subsystem grouping (S)">+ Subsystem</button>
+    <button id="toolConduit" class="tool" title="Connect two zones with a conduit (C)">+ Conduit</button>
+    <span class="sep"></span>
+    <button id="undoBtn" title="Undo (Ctrl+Z)">Undo</button>
+    <button id="redoBtn" title="Redo (Ctrl+Y)">Redo</button>
+    <span class="sep"></span>
+    <button id="fileBtn" title="New, save, open, import">File</button>
+    <button id="tablesBtn" title="Asset and zone/conduit tables">Tables</button>
+    <button id="exportBtn" title="Export the diagram">Export</button>
+    <button id="settingsBtn" title="Colours, Purdue bands, grid">Settings</button>
+    <button id="helpBtn" title="About and how-to">Help</button>
+  </div>
+</header>
+
+<main class="work">
+  <div id="canvasWrap" class="canvas-wrap">
+    <svg id="canvas" xmlns="http://www.w3.org/2000/svg" tabindex="0" aria-label="Diagram canvas"></svg>
+    <div id="hint" class="hint" hidden></div>
+    <section id="drawer" class="drawer" hidden aria-label="Tables">
+      <div class="drawer-bar">
+        <button id="tabAssets" class="tab active" type="button">Assets</button>
+        <button id="tabZC" class="tab" type="button">Zones &amp; conduits</button>
+        <span class="drawer-spacer"></span>
+        <button id="tableCsv" class="small" type="button">Download CSV</button>
+        <button id="drawerClose" class="small" type="button" title="Close">×</button>
+      </div>
+      <div id="drawerBody" class="drawer-body"></div>
+    </section>
+  </div>
+
+  <aside id="props" class="props" aria-label="Properties">
+    <div id="propNone" class="prop-empty">
+      <p><strong>Nothing selected.</strong></p>
+      <p>Draw a zone with <em>+ Zone</em>, then connect zones with <em>+ Conduit</em> (click the first zone, then the second).</p>
+      <p>Drop a zone inside another zone or a subsystem to nest it. Double-click anything to edit it here.</p>
+      <p class="fine">Everything stays in this browser - autosaved locally, nothing uploaded.</p>
+    </div>
+    <form id="propForm" hidden autocomplete="off"></form>
+  </aside>
+</main>
+
+<dialog id="fileDlg">
+  <h2>File</h2>
+  <div class="dlg-grid">
+    <button id="newBtn">New diagram</button>
+    <button id="exampleBtn">Load the example diagram</button>
+    <button id="saveAsBtn">Save a named copy in this browser</button>
+    <label for="savedList" class="lbl">Saved in this browser</label>
+    <select id="savedList" size="5"></select>
+    <div class="row">
+      <button id="loadBtn">Open selected</button>
+      <button id="deleteBtn" class="danger">Delete selected</button>
+    </div>
+    <hr>
+    <button id="importBtn">Import XML file&hellip;</button>
+    <input type="file" id="importFile" accept=".xml,.zcdx" hidden>
+  </div>
+  <button class="close" data-close>Close</button>
+</dialog>
+
+<dialog id="exportDlg">
+  <h2>Export</h2>
+  <div class="dlg-grid">
+    <button id="expXml">XML (re-importable, keeps everything)</button>
+    <button id="expVsdx">Visio (.vsdx)</button>
+    <button id="expDrawio">draw.io / diagrams.net (.drawio)</button>
+    <button id="expSvg">SVG (vector image)</button>
+    <button id="expPng">PNG (image)</button>
+  </div>
+  <p class="fine">Visio and draw.io exports carry the shapes, names and colours; the full attribute set (SL-T vectors, boundaries, asset lists) always survives in the XML export.</p>
+  <button class="close" data-close>Close</button>
+</dialog>
+
+<dialog id="settingsDlg">
+  <h2>Settings</h2>
+  <form id="settingsForm" method="dialog">
+    <fieldset>
+      <legend>Default colours</legend>
+      <label>Zone fill <input type="color" id="setZoneFill"></label>
+      <label>Subsystem fill <input type="color" id="setSubFill"></label>
+      <label>Conduit <input type="color" id="setConduitFill"></label>
+      <label>Canvas <input type="color" id="setCanvasFill"></label>
+      <button type="button" id="setReset">Reset to standard-style defaults</button>
+    </fieldset>
+    <fieldset>
+      <legend>Purdue level bands</legend>
+      <label><input type="checkbox" id="setBands"> Show the Purdue band labels behind the diagram (levels 5 and 4, then 3 and DMZ, then 2, then 1 and 0)</label>
+      <p class="fine">Drag the dashed band dividers on the canvas to move them.</p>
+    </fieldset>
+    <fieldset>
+      <legend>Canvas</legend>
+      <label><input type="checkbox" id="setSnap" checked> Snap to grid</label>
+    </fieldset>
+  </form>
+  <button class="close" data-close>Close</button>
+</dialog>
+
+<dialog id="helpDlg">
+  <h2>About</h2>
+  <div class="help-body">
+    <p>A free designer for <strong>zone and conduit diagrams</strong> in the style of IEC 62443-3-2 and CLC/TS 50701. Partition a system under consideration into zones, group them into subsystems, connect them with conduits, and record the attributes the standard asks for: accountable organisation, logical and physical boundaries, safety designation, access points, data flows, asset list, and a target security level (<abbr title="Target security level">SL-T</abbr>) as the seven-value vector over the foundational requirements (<abbr title="Identification and authentication control">IAC</abbr>, <abbr title="Use control">UC</abbr>, <abbr title="System integrity">SI</abbr>, <abbr title="Data confidentiality">DC</abbr>, <abbr title="Restricted data flow">RDF</abbr>, <abbr title="Timely response to events">TRE</abbr>, <abbr title="Resource availability">RA</abbr>).</p>
+    <ul>
+      <li><strong>Zones</strong> group assets with common security requirements. Mark a zone safety-related and it carries the red flash the TS 50701 figures use.</li>
+      <li><strong>Subsystems</strong> are grey groupings (signalling, rolling stock, energy, a plant) - drawn like the standard's figures, they carry no SL-T of their own.</li>
+      <li><strong>Conduits</strong> connect two zones. Pick the type: gateway (equal SLs), filtering (firewall towards the higher SL) or unidirectional (data diode). A conduit that should join more than two zones is drawn as extra lines sharing the same name.</li>
+      <li><strong>Assets</strong> live inside zones and lay themselves out automatically.</li>
+    </ul>
+    <p>Everything runs in this browser tab: work is autosaved to this browser's local storage and never uploaded. Export to Visio (.vsdx), draw.io, SVG or PNG for reports, and to XML for a lossless save you can re-import or share.</p>
+    <p>Keyboard: <kbd>V</kbd> select, <kbd>Z</kbd> zone, <kbd>S</kbd> subsystem, <kbd>C</kbd> conduit, <kbd>Del</kbd> delete, <kbd>Ctrl+Z</kbd>/<kbd>Ctrl+Y</kbd> undo/redo, arrow keys nudge, <kbd>Esc</kbd> cancel.</p>
+    <p class="fine">Not affiliated with or endorsed by the IEC, ISA, CENELEC or the ISA Global Cybersecurity Alliance. IEC 62443 is the property of the IEC and ISA; CLC/TS 50701 of CENELEC - referenced here only to describe what the diagrams depict. This tool draws the documentation; it is not a substitute for the standards or for a risk assessment.</p>
+  </div>
+  <button class="close" data-close>Close</button>
+</dialog>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>

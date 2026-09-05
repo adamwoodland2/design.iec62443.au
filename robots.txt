@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://design.iec62443.au/sitemap.xml
