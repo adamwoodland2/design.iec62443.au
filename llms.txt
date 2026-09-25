@@ -19,3 +19,9 @@ diagrams. Beta.
 
 Not affiliated with or endorsed by the IEC, ISA or CENELEC. The tool draws the
 documentation; it is not a substitute for the standards or for a risk assessment.
+
+## Related
+
+- [iec62443.au](https://iec62443.au/): plain-language guide to the IEC 62443 standard the diagrams follow, by the same author
+- [operationaltechnology.au](https://operationaltechnology.au/): background on the plants and systems the diagrams describe, by the same author
+- [Adam Woodland](https://adamwoodland.com/): the author; the partitioning and risk assessment behind these diagrams is the day job
