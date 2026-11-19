@@ -1,6 +1,6 @@
 // Import/export: native XML (lossless), SVG, PNG, draw.io XML, Visio VSDX.
 import { buildZip } from './zip.js';
-import { NS, el, renderDiagram, diagramBounds, DEFAULTS, slSummary, luminance } from './render.js';
+import { NS, el, renderDiagram, diagramBounds, DEFAULTS, slSummary, luminance, colour, conduitEnds } from './render.js';
 
 const esc = (s) => String(s == null ? '' : s)
   .replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
@@ -31,7 +31,7 @@ const TAGS = {
 
 function slXml(sl) {
   if (!sl || !sl.some((v) => v != null)) return '';
-  return `<slTarget>${sl.map((v) => (v == null ? '' : v)).join(',')}</slTarget>`;
+  return `<slTarget>${esc(sl.map((v) => (v == null ? '' : v)).join(','))}</slTarget>`;
 }
 function commonXml(o, extra = []) {
   let out = '';
@@ -45,10 +45,11 @@ export function toXML(doc) {
   let out = `<?xml version="1.0" encoding="UTF-8"?>\n`;
   out += `<zoneConduitDesign schema="1" app="design.iec62443.au" title="${esc(doc.title)}">\n`;
   if (doc.suc) out += ` <systemUnderConsideration>${esc(doc.suc)}</systemUnderConsideration>\n`;
-  out += ` <settings zoneFill="${s.zoneFill}" subFill="${s.subFill}" conduitFill="${s.conduitFill}" canvasFill="${s.canvasFill}" bands="${!!s.bands}" band1="${s.band1}" band2="${s.band2}" band3="${s.band3}" snap="${!!s.snap}"/>\n`;
+  // (every attribute escaped: a value from storage or an old file must not break the markup)
+  out += ` <settings zoneFill="${esc(s.zoneFill)}" subFill="${esc(s.subFill)}" conduitFill="${esc(s.conduitFill)}" canvasFill="${esc(s.canvasFill)}" bands="${!!s.bands}" band1="${esc(s.band1)}" band2="${esc(s.band2)}" band3="${esc(s.band3)}" snap="${!!s.snap}"/>\n`;
   out += ' <zones>\n';
   for (const n of doc.nodes) {
-    out += `  <zone id="${esc(n.id)}" kind="${n.kind}" name="${esc(n.name)}"${n.parent ? ` parent="${esc(n.parent)}"` : ''} x="${n.x}" y="${n.y}" w="${n.w}" h="${n.h}"${n.fill ? ` fill="${n.fill}"` : ''} safety="${!!n.safety}">`;
+    out += `  <zone id="${esc(n.id)}" kind="${esc(n.kind)}" name="${esc(n.name)}"${n.parent ? ` parent="${esc(n.parent)}"` : ''} x="${esc(n.x)}" y="${esc(n.y)}" w="${esc(n.w)}" h="${esc(n.h)}"${n.fill ? ` fill="${esc(n.fill)}"` : ''} safety="${!!n.safety}">`;
     out += commonXml(n);
     if (n.assets && n.assets.length) {
       out += '<assets>';
@@ -59,7 +60,7 @@ export function toXML(doc) {
   }
   out += ' </zones>\n <conduits>\n';
   for (const c of doc.conduits) {
-    out += `  <conduit id="${esc(c.id)}" name="${esc(c.name)}" a="${esc(c.a)}" b="${esc(c.b)}" type="${c.type}" dir="${c.dir}"${c.fill ? ` fill="${c.fill}"` : ''} safety="${!!c.safety}">`;
+    out += `  <conduit id="${esc(c.id)}" name="${esc(c.name)}" a="${esc(c.a)}" b="${esc(c.b)}" type="${esc(c.type)}" dir="${esc(c.dir)}"${c.fill ? ` fill="${esc(c.fill)}"` : ''} safety="${!!c.safety}">`;
     out += commonXml(c, ['channels']);
     out += '</conduit>\n';
   }
@@ -79,14 +80,16 @@ export function fromXML(text) {
     nodes: [],
     conduits: [],
   };
+  // (colours must be #rrggbb and numbers finite; anything else reads as the default, as a missing one does)
+  const num = (v) => { const x = +v; return Number.isFinite(x) ? x : 0; };
   const s = xml.querySelector('settings');
   if (s) {
-    for (const k of ['zoneFill', 'subFill', 'conduitFill', 'canvasFill']) if (s.getAttribute(k)) doc.settings[k] = s.getAttribute(k);
+    for (const k of ['zoneFill', 'subFill', 'conduitFill', 'canvasFill']) doc.settings[k] = colour(s.getAttribute(k), DEFAULTS[k]);
     doc.settings.bands = s.getAttribute('bands') === 'true';
     doc.settings.snap = s.getAttribute('snap') !== 'false';
-    doc.settings.band1 = +s.getAttribute('band1') || DEFAULTS.band1;
-    doc.settings.band2 = +s.getAttribute('band2') || DEFAULTS.band2;
-    doc.settings.band3 = +s.getAttribute('band3') || DEFAULTS.band3;
+    doc.settings.band1 = num(s.getAttribute('band1')) || DEFAULTS.band1;
+    doc.settings.band2 = num(s.getAttribute('band2')) || DEFAULTS.band2;
+    doc.settings.band3 = num(s.getAttribute('band3')) || DEFAULTS.band3;
   }
   const readCommon = (e, o, extra = []) => {
     for (const f of [...TEXT_FIELDS, ...extra]) {
@@ -94,25 +97,41 @@ export function fromXML(text) {
       if (t) o[f] = t.textContent;
     }
     const sl = e.querySelector(':scope > slTarget');
-    if (sl) o.sl = sl.textContent.split(',').map((v) => (v === '' ? null : Math.max(0, Math.min(4, +v)))).slice(0, 7);
+    if (sl) o.sl = sl.textContent.split(',').map((v) => (v === '' || !Number.isFinite(+v) ? null : Math.max(0, Math.min(4, +v)))).slice(0, 7);
   };
   for (const z of xml.querySelectorAll('zones > zone')) {
     const n = {
       id: z.getAttribute('id'), kind: z.getAttribute('kind') === 'subsystem' ? 'subsystem' : 'zone',
       name: z.getAttribute('name') || 'Zone', parent: z.getAttribute('parent') || null,
-      x: +z.getAttribute('x') || 0, y: +z.getAttribute('y') || 0,
-      w: Math.max(60, +z.getAttribute('w') || 200), h: Math.max(40, +z.getAttribute('h') || 120),
-      fill: z.getAttribute('fill') || null, safety: z.getAttribute('safety') === 'true',
+      x: num(z.getAttribute('x')), y: num(z.getAttribute('y')),
+      w: Math.max(60, num(z.getAttribute('w')) || 200), h: Math.max(40, num(z.getAttribute('h')) || 120),
+      fill: colour(z.getAttribute('fill'), null), safety: z.getAttribute('safety') === 'true',
       sl: null, assets: [],
     };
     readCommon(z, n);
     for (const a of z.querySelectorAll('assets > asset')) {
-      n.assets.push({ id: a.getAttribute('id') || crypto.randomUUID(), name: a.getAttribute('name') || '', type: a.getAttribute('type') || 'Other', fill: a.getAttribute('fill') || null, ip: a.getAttribute('ip') || '', note: a.getAttribute('note') || '' });
+      n.assets.push({ id: a.getAttribute('id') || crypto.randomUUID(), name: a.getAttribute('name') || '', type: a.getAttribute('type') || 'Other', fill: colour(a.getAttribute('fill'), null), ip: a.getAttribute('ip') || '', note: a.getAttribute('note') || '' });
     }
     doc.nodes.push(n);
   }
+  // Checked before the file replaces anything: every zone and conduit needs an id of its own, and no
+  // zone may sit inside itself (a loop of parents would otherwise hang the drawing).
+  const used = new Set();
+  const claim = (id, what) => {
+    if (!id) throw new Error(`A ${what} in the file has no id.`);
+    if (used.has(id)) throw new Error(`The id "${id}" is used more than once in the file.`);
+    used.add(id);
+  };
+  for (const n of doc.nodes) claim(n.id, n.kind);
   const ids = new Set(doc.nodes.map((n) => n.id));
   for (const n of doc.nodes) if (n.parent && !ids.has(n.parent)) n.parent = null;
+  for (const n of doc.nodes) {
+    const seen = new Set([n.id]);
+    for (let p = n.parent; p; p = doc.nodes.find((x) => x.id === p).parent) {
+      if (seen.has(p)) throw new Error(`"${n.name}" is placed inside itself (its parents go round in a loop).`);
+      seen.add(p);
+    }
+  }
   for (const c of xml.querySelectorAll('conduits > conduit')) {
     if (!ids.has(c.getAttribute('a')) || !ids.has(c.getAttribute('b'))) continue;
     const o = {
@@ -120,8 +139,9 @@ export function fromXML(text) {
       a: c.getAttribute('a'), b: c.getAttribute('b'),
       type: ['gateway', 'filtering', 'unidirectional'].includes(c.getAttribute('type')) ? c.getAttribute('type') : 'gateway',
       dir: ['ba', 'both'].includes(c.getAttribute('dir')) ? c.getAttribute('dir') : 'ab',
-      fill: c.getAttribute('fill') || null, safety: c.getAttribute('safety') === 'true', sl: null,
+      fill: colour(c.getAttribute('fill'), null), safety: c.getAttribute('safety') === 'true', sl: null,
     };
+    claim(o.id, 'conduit');
     readCommon(c, o, ['channels']);
     doc.conduits.push(o);
   }
@@ -156,32 +176,66 @@ export async function exportPngBlob(doc, scale = 2) {
 
 // ------------------------------------------------------------------ draw.io
 
+// A conduit's type in words, with which way it flows or where its security device sits: draw.io and
+// Visio can't draw the canvas's device markers, so their labels say it instead.
+function conduitKind(doc, c) {
+  const name = (id) => doc.nodes.find((n) => n.id === id)?.name || '?';
+  if (c.type === 'unidirectional') return c.dir === 'ba' ? `Unidirectional: ${name(c.b)} → ${name(c.a)}` : `Unidirectional: ${name(c.a)} → ${name(c.b)}`;
+  if (c.type === 'filtering') return c.dir === 'both' ? 'Filtering: security devices at both ends' : `Filtering: security device at ${name(c.dir === 'ba' ? c.a : c.b)}`;
+  return 'Gateway';
+}
+
 export function exportDrawio(doc) {
   const s = doc.settings;
   let cells = '<mxCell id="0"/><mxCell id="1" parent="0"/>';
   const order = [...doc.nodes].sort((a, b) => (a.parent ? 1 : 0) - (b.parent ? 1 : 0));
   for (const n of order) {
     const isZone = n.kind === 'zone';
-    const fill = n.fill || (isZone ? s.zoneFill : s.subFill);
+    const fill = colour(n.fill, colour(isZone ? s.zoneFill : s.subFill, isZone ? DEFAULTS.zoneFill : DEFAULTS.subFill));
     const font = luminance(fill) < 0.55 ? '#ffffff' : '#1c2430';
     const style = `rounded=${isZone ? 1 : 0};whiteSpace=wrap;html=1;verticalAlign=top;align=left;spacing=6;fillColor=${fill};fontColor=${font};strokeColor=${n.safety ? '#c62828' : '#666666'};strokeWidth=${n.safety ? 2 : 1};`;
-    const label = [esc(n.name), slSummary(n.sl), n.safety ? 'SAFETY-RELATED' : ''].filter(Boolean).join('&#10;');
-    cells += `<mxCell id="${esc(n.id)}" value="${label}" style="${style}" vertex="1" parent="1"><mxGeometry x="${n.x}" y="${n.y}" width="${n.w}" height="${n.h}" as="geometry"/></mxCell>`;
+    const label = [n.name, slSummary(n.sl), n.safety ? 'SAFETY-RELATED' : ''].filter(Boolean).map(esc).join('&#10;');
+    cells += `<mxCell id="${esc(n.id)}" value="${label}" style="${style}" vertex="1" parent="1"><mxGeometry x="${esc(n.x)}" y="${esc(n.y)}" width="${esc(n.w)}" height="${esc(n.h)}" as="geometry"/></mxCell>`;
     if (isZone && n.assets) {
       n.assets.forEach((a, i) => {
         const ax = n.x + 8 + (i % 3) * 106, ay = n.y + 40 + Math.floor(i / 3) * 30;
-        const af = a.fill || '#ffffff';
-        cells += `<mxCell id="${esc(n.id)}-a${i}" value="${esc(a.name || a.type)}" style="rounded=1;html=1;fillColor=${af};fontColor=${luminance(af) < 0.55 ? '#ffffff' : '#1c2430'};strokeColor=#9aa4af;fontSize=10;" vertex="1" parent="1"><mxGeometry x="${ax}" y="${ay}" width="100" height="24" as="geometry"/></mxCell>`;
+        const af = colour(a.fill, '#ffffff');
+        cells += `<mxCell id="${esc(n.id)}-a${i}" value="${esc(a.name || a.type)}" style="rounded=1;html=1;fillColor=${af};fontColor=${luminance(af) < 0.55 ? '#ffffff' : '#1c2430'};strokeColor=#9aa4af;fontSize=10;" vertex="1" parent="1"><mxGeometry x="${esc(ax)}" y="${esc(ay)}" width="100" height="24" as="geometry"/></mxCell>`;
       });
     }
   }
   for (const c of doc.conduits) {
-    const stroke = c.fill || s.conduitFill;
+    const stroke = colour(c.fill, colour(s.conduitFill, DEFAULTS.conduitFill));
     const arrow = c.type === 'unidirectional' ? (c.dir === 'ba' ? 'startArrow=block;endArrow=none;' : 'endArrow=block;startArrow=none;') : 'endArrow=none;startArrow=none;';
-    const label = [esc(c.name), slSummary(c.sl)].filter(Boolean).join(' · ');
-    cells += `<mxCell id="${esc(c.id)}" value="${label}" style="${arrow}strokeColor=${stroke};strokeWidth=6;fontSize=11;labelBackgroundColor=${stroke};fontColor=${luminance(stroke) < 0.55 ? '#ffffff' : '#1c2430'};" edge="1" parent="1" source="${esc(c.a)}" target="${esc(c.b)}"><mxGeometry relative="1" as="geometry"/></mxCell>`;
+    // (the type, the device placement and a safety marking, which draw.io can't draw, go in the label;
+    // a safety-related conduit's label is outlined red, as its chip is on the canvas)
+    const label = [[c.name, slSummary(c.sl)].filter(Boolean).join(' · '), conduitKind(doc, c), c.safety ? 'SAFETY-RELATED' : ''].filter(Boolean).map(esc).join('&#10;');
+    cells += `<mxCell id="${esc(c.id)}" value="${label}" style="${arrow}strokeColor=${stroke};strokeWidth=6;fontSize=11;labelBackgroundColor=${stroke};${c.safety ? 'labelBorderColor=#c62828;' : ''}fontColor=${luminance(stroke) < 0.55 ? '#ffffff' : '#1c2430'};" edge="1" parent="1" source="${esc(c.a)}" target="${esc(c.b)}"><mxGeometry relative="1" as="geometry"/></mxCell>`;
   }
   return `<mxfile host="design.iec62443.au"><diagram id="zcd" name="${esc(doc.title || 'Page-1')}"><mxGraphModel grid="1" gridSize="10" page="1" pageWidth="1169" pageHeight="826"><root>${cells}</root></mxGraphModel></diagram></mxfile>`;
+}
+
+// ------------------------------------------------------------------ Excel XLSX (the tables)
+
+// One sheet in which every cell is an inline string: text however it is opened, never a formula, number or
+// date, which a CSV can't promise. `rows` is a list of rows of values, the first the header.
+export function exportXlsx(sheetName, rows) {
+  const col = (i) => { let s = ''; for (let n = i + 1; n; n = Math.floor((n - 1) / 26)) s = String.fromCharCode(65 + ((n - 1) % 26)) + s; return s; };
+  const text = (v) => esc(String(v == null ? '' : v)
+    .replace(/\r\n?/g, '\n')
+    .replace(/_x[0-9a-f]{4}_/gi, (m) => `_x005F_${m.slice(1)}`)    // (Excel reads _xHHHH_ as a character code)
+    .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\ufffe\uffff]/g, (c) => `_x${c.charCodeAt(0).toString(16).padStart(4, '0').toUpperCase()}_`)
+    .slice(0, 32767));                                                     // (Excel's limit for one cell)
+  const sheetRows = rows.map((r, y) => `<row r="${y + 1}">${r.map((v, x) => `<c r="${col(x)}${y + 1}" t="inlineStr"><is><t xml:space="preserve">${text(v)}</t></is></c>`).join('')}</row>`).join('\n');
+  const head = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n';
+  const RELS = 'http://schemas.openxmlformats.org/package/2006/relationships', DOCREL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+  return buildZip([
+    { name: '[Content_Types].xml', data: `${head}<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>` },
+    { name: '_rels/.rels', data: `${head}<Relationships xmlns="${RELS}"><Relationship Id="rId1" Type="${DOCREL}/officeDocument" Target="xl/workbook.xml"/></Relationships>` },
+    { name: 'xl/workbook.xml', data: `${head}<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="${DOCREL}"><sheets><sheet name="${esc(sheetName.slice(0, 31))}" sheetId="1" r:id="rId1"/></sheets></workbook>` },
+    { name: 'xl/_rels/workbook.xml.rels', data: `${head}<Relationships xmlns="${RELS}"><Relationship Id="rId1" Type="${DOCREL}/worksheet" Target="worksheets/sheet1.xml"/></Relationships>` },
+    { name: 'xl/worksheets/sheet1.xml', data: `${head}<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>\n${sheetRows}\n</sheetData></worksheet>` },
+  ]);
 }
 
 // ------------------------------------------------------------------ Visio VSDX
@@ -223,7 +277,7 @@ ${text ? `<Text>${esc(text)}</Text>` : ''}
 
   for (const n of doc.nodes) {
     const isZone = n.kind === 'zone';
-    const fill = n.fill || (isZone ? s.zoneFill : s.subFill);
+    const fill = colour(n.fill, colour(isZone ? s.zoneFill : s.subFill, isZone ? DEFAULTS.zoneFill : DEFAULTS.subFill));
     const ink = luminance(fill) < 0.55 ? '#FFFFFF' : '#1C2430';
     const label = [n.name, slSummary(n.sl), n.safety ? 'SAFETY-RELATED' : ''].filter(Boolean).join('\n');
     shapes += rectShape(n.x, n.y, n.w, n.h, fill, n.safety ? '#C62828' : '#666666', n.safety ? '0.028' : '0.014', label, ink, { rounded: isZone });
@@ -233,15 +287,19 @@ ${text ? `<Text>${esc(text)}</Text>` : ''}
     n.assets.forEach((a, i) => {
       const ax = n.x + 8 + (i % 3) * 106, ay = n.y + 40 + Math.floor(i / 3) * 30;
       if (ay + 24 > n.y + n.h - 6) return;
-      const af = a.fill || '#FFFFFF';
+      const af = colour(a.fill, '#FFFFFF');
       shapes += rectShape(ax, ay, 100, 24, af, '#9AA4AF', '0.01', a.name || a.type, luminance(af) < 0.55 ? '#FFFFFF' : '#1C2430', { fontSize: 0.09 });
     });
   }
   for (const c of doc.conduits) {
-    const a = doc.nodes.find((n) => n.id === c.a), z = doc.nodes.find((n) => n.id === c.b);
-    if (!a || !z) continue;
-    const x1 = a.x + a.w / 2, y1 = a.y + a.h / 2, x2 = z.x + z.w / 2, y2 = z.y + z.h / 2;
-    const stroke = c.fill || s.conduitFill;
+    // (from border to border, as on the canvas, so an arrowhead lands on the zone's edge, not under its name)
+    const ends = conduitEnds(doc, c);
+    if (!ends) continue;
+    const { x1, y1, x2, y2 } = ends;
+    const stroke = colour(c.fill, colour(s.conduitFill, DEFAULTS.conduitFill));
+    // The line runs from A to B: a data diode gets an arrowhead at the end its data flows to.
+    const arrowAt = c.type !== 'unidirectional' ? '' : c.dir === 'ba' ? 'Begin' : 'End';
+    const arrow = arrowAt ? `<Cell N="${arrowAt}Arrow" V="4"/><Cell N="${arrowAt}ArrowSize" V="2"/>` : '';
     const lx = Math.min(x1, x2), ly = Math.min(y1, y2);
     const w = Math.max(1, Math.abs(x2 - x1)), h = Math.max(1, Math.abs(y2 - y1));
     // Local coords: Visio Y grows upward inside the shape too.
@@ -251,12 +309,12 @@ ${text ? `<Text>${esc(text)}</Text>` : ''}
 <Cell N="PinX" V="${X(lx + w / 2)}"/><Cell N="PinY" V="${Y(ly + h / 2)}"/>
 <Cell N="Width" V="${IN(w)}"/><Cell N="Height" V="${IN(h)}"/>
 <Cell N="LocPinX" V="${IN(w / 2)}"/><Cell N="LocPinY" V="${IN(h / 2)}"/>
-<Cell N="LineColor" V="${stroke}"/><Cell N="LineWeight" V="0.06"/><Cell N="LineCap" V="1"/>
-<Section N="Character"><Row IX="0"><Cell N="Color" V="#1C2430"/><Cell N="Size" V="0.1"/></Row></Section>
+<Cell N="LineColor" V="${stroke}"/><Cell N="LineWeight" V="0.06"/><Cell N="LineCap" V="1"/>${arrow}
+<Section N="Character"><Row IX="0"><Cell N="Color" V="${c.safety ? '#C62828' : '#1C2430'}"/><Cell N="Size" V="0.1"/></Row></Section>
 <Section N="Geometry" IX="0"><Cell N="NoFill" V="1"/><Cell N="NoLine" V="0"/>
 <Row T="RelMoveTo" IX="1"><Cell N="X" V="${relX(x1)}"/><Cell N="Y" V="${relY(y1)}"/></Row>
 <Row T="RelLineTo" IX="2"><Cell N="X" V="${relX(x2)}"/><Cell N="Y" V="${relY(y2)}"/></Row></Section>
-<Text>${esc([c.name, slSummary(c.sl)].filter(Boolean).join(' - '))}</Text>
+<Text>${esc([[c.name, slSummary(c.sl)].filter(Boolean).join(' - '), conduitKind(doc, c), c.safety ? 'SAFETY-RELATED' : ''].filter(Boolean).join('\n'))}</Text>
 </Shape>\n`;
   }
 

@@ -12,9 +12,16 @@ diagrams. Beta.
   DC, RDF, TRE, RA) - or no SL-T, for example when covered by a code of practice.
 - Optional Purdue level bands (5 and 4 / 3 and DMZ / 2 / 1 and 0) with draggable dividers.
 - Tables view: an asset register and a zone/conduit characteristics register, each
-  downloadable as CSV.
+  downloadable as CSV or as an Excel workbook (.xlsx), with every zone's, conduit's and
+  asset's unique ID. In the workbook every cell is text. In the CSV, text starting with
+  = + - or @ gets a leading apostrophe so the usual spreadsheets don't run it as a formula,
+  but a CSV can't mark a cell as text: the apostrophe shows, and numbers and dates are
+  still converted.
 - Everything runs in the browser: work autosaves to local storage and is never uploaded.
 - Exports: lossless re-importable XML, Visio (.vsdx), draw.io (.drawio), SVG and PNG.
+  Visio and draw.io carry the shapes, names, colours and SL-T summaries, and label each
+  conduit with its type, direction or security-device placement and safety marking; the
+  full attribute set is only in the XML.
 - Loads a small example water-treatment-plant diagram on first visit.
 
 Not affiliated with or endorsed by the IEC, ISA or CENELEC. The tool draws the

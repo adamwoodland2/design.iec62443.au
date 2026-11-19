@@ -1,6 +1,6 @@
 // Zone & Conduit Designer - model, canvas interaction, properties panel, persistence.
 import { FR, FR_NAMES, TERM_NAMES, NS, el, DEFAULTS, PRESETS, renderDiagram, diagramBounds, allAssets, sortedNodes, slSummary } from './render.js';
-import { toXML, fromXML, exportSvgString, exportPngBlob, exportDrawio, exportVsdx, download, fileStem } from './exports.js';
+import { toXML, fromXML, exportSvgString, exportPngBlob, exportDrawio, exportVsdx, exportXlsx, download, fileStem } from './exports.js';
 
 const $ = (s) => document.querySelector(s);
 const svg = $('#canvas');
@@ -66,8 +66,8 @@ const nodeById = (id) => doc.nodes.find((n) => n.id === id);
 const conduitById = (id) => doc.conduits.find((c) => c.id === id);
 
 function descendants(id) {
-  const out = [];
-  const walk = (pid) => { for (const n of doc.nodes) if (n.parent === pid) { out.push(n); walk(n.id); } };
+  const out = [], seen = new Set([id]);   // (each node once: a loop of parents can't recurse forever)
+  const walk = (pid) => { for (const n of doc.nodes) if (n.parent === pid && !seen.has(n.id)) { seen.add(n.id); out.push(n); walk(n.id); } };
   walk(id);
   return out;
 }
@@ -441,9 +441,16 @@ function textArea(name, value, rows = 2) {
   return t;
 }
 
+// One undo step per text edit, taken before its first keystroke, so Undo goes back to the text as it was.
+// A new step starts once the field is left.
+function undoStep(inp) {
+  let open = false;
+  inp.addEventListener('blur', () => { open = false; });
+  return () => { if (!open) { pushUndo(); open = true; } };
+}
 function bindText(inp, obj, key) {
-  inp.addEventListener('input', () => { obj[key] = inp.value; draw(); autosave(); });
-  inp.addEventListener('change', () => pushUndo());
+  const step = undoStep(inp);
+  inp.addEventListener('input', () => { step(); obj[key] = inp.value; draw(); autosave(); });
 }
 
 // A label with hover tooltips on every acronym: "Target security level SL-T (IAC, UC, ...)".
@@ -533,8 +540,8 @@ function assetsEditor(n) {
       const li = document.createElement('li');
       const name = document.createElement('input');
       name.type = 'text'; name.value = a.name; name.placeholder = 'Name';
-      name.addEventListener('input', () => { a.name = name.value; draw(); autosave(); });
-      name.addEventListener('change', () => pushUndo());
+      const step = undoStep(name);
+      name.addEventListener('input', () => { step(); a.name = name.value; draw(); autosave(); });
       const type = document.createElement('select');
       for (const t of ASSET_TYPES) type.append(new Option(t, t));
       type.value = ASSET_TYPES.includes(a.type) ? a.type : 'Other';
@@ -849,10 +856,11 @@ function tableData() {
         sel: { type: 'node', id: r.zone.id },
         cells: [{ swatch: r.asset.fill }, r.asset.name || '(unnamed)', r.asset.type, r.zone.name, slText(r.zone.sl), r.zone.safety ? 'YES' : ''],
       })),
-      csvHead: ['Asset', 'Type', 'Zone', 'Zone SL-T', 'Safety zone'],
-      csvRows: allAssets(doc).map((r) => [r.asset.name, r.asset.type, r.zone.name, slText(r.zone.sl), r.zone.safety ? 'yes' : 'no']),
+      // (the CSV also carries each asset's and zone's unique id, which the screen leaves out)
+      csvHead: ['Asset ID', 'Asset', 'Type', 'Zone ID', 'Zone', 'Zone SL-T', 'Safety zone'],
+      csvRows: allAssets(doc).map((r) => [r.asset.id, r.asset.name, r.asset.type, r.zone.id, r.zone.name, slText(r.zone.sl), r.zone.safety ? 'yes' : 'no']),
       empty: 'No assets yet - add them to a zone via its properties.',
-      file: 'assets',
+      file: 'assets', sheet: 'Assets',
     };
   }
   const items = [
@@ -864,10 +872,10 @@ function tableData() {
   return {
     head,
     rows: items.map((it) => ({ sel: it.sel, cells: row(it) })),
-    csvHead: head,
-    csvRows: items.map((it) => row(it).map((v, i) => (i === 4 ? (it.o.safety ? 'yes' : 'no') : v))),
+    csvHead: ['ID', ...head],
+    csvRows: items.map((it) => [it.o.id, ...row(it).map((v, i) => (i === 4 ? (it.o.safety ? 'yes' : 'no') : v))]),
     empty: 'Nothing drawn yet.',
-    file: 'zones-conduits',
+    file: 'zones-conduits', sheet: 'Zones and conduits',
   };
 }
 
@@ -916,9 +924,23 @@ $('#tabAssets').addEventListener('click', () => { drawerTab = 'assets'; buildTab
 $('#tabZC').addEventListener('click', () => { drawerTab = 'zc'; buildTables(); });
 $('#tableCsv').addEventListener('click', () => {
   const d = tableData();
-  const csvEsc = (v) => { v = String(v == null ? '' : v); return /[",\n]/.test(v) ? `"${v.replaceAll('"', '""')}"` : v; };
+  // A cell that starts with = + - @, a tab or a line break gets an apostrophe first (OWASP's CSV injection
+  // advice), and one holding a quote, comma or line break (carriage returns included) is quoted. That stops
+  // the common spreadsheets reading those cells as formulas when they open the file (Excel 365 checked,
+  // also after Excel saves the CSV and reopens it), but a CSV can't say "text": the apostrophe shows, and
+  // numbers, dates and TRUE/FALSE are still converted. The XLSX download below is the one whose cells are
+  // always text.
+  const csvEsc = (v) => {
+    v = String(v == null ? '' : v);
+    if (/^[=+\-@\t\r\n]/.test(v)) v = `'${v}`;
+    return /[",\r\n]/.test(v) ? `"${v.replaceAll('"', '""')}"` : v;
+  };
   const csv = [d.csvHead, ...d.csvRows].map((r) => r.map(csvEsc).join(',')).join('\r\n');
   download(`${fileStem(doc)}-${d.file}.csv`, '﻿' + csv, 'text/csv');
+});
+$('#tableXlsx').addEventListener('click', () => {
+  const d = tableData();
+  download(`${fileStem(doc)}-${d.file}.xlsx`, new Blob([exportXlsx(d.sheet, [d.csvHead, ...d.csvRows])], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
 });
 
 // ------------------------------------------------------------------ boot

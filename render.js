@@ -59,6 +59,10 @@ export function el(name, attrs = {}, text) {
   return e;
 }
 
+// A colour as the app writes it (#rrggbb), or the fallback: anything else is never written into an
+// export's markup or style string.
+export const colour = (v, fallback) => (typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v) ? v : fallback);
+
 export function luminance(hex) {
   const n = parseInt(hex.slice(1), 16);
   return (0.2126 * (n >> 16 & 255) + 0.7152 * (n >> 8 & 255) + 0.0722 * (n & 255)) / 255;
@@ -76,7 +80,8 @@ export function slSummary(sl) {
 export function nodeDepth(doc, n) {
   let d = 0;
   let cur = n;
-  while (cur.parent) { d++; cur = doc.nodes.find((x) => x.id === cur.parent) || {}; }
+  // (no real chain is longer than the node count, so the bound only stops a parent loop hanging the tab)
+  while (cur.parent && d < doc.nodes.length) { d++; cur = doc.nodes.find((x) => x.id === cur.parent) || {}; }
   return d;
 }
 

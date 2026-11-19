@@ -112,7 +112,8 @@
         <button id="tabAssets" class="tab active" type="button">Assets</button>
         <button id="tabZC" class="tab" type="button">Zones &amp; conduits</button>
         <span class="drawer-spacer"></span>
-        <button id="tableCsv" class="small" type="button">Download CSV</button>
+        <button id="tableCsv" class="small" type="button" title="Includes each zone's, conduit's and asset's unique ID. Text starting with = + - or @ gets a leading apostrophe, which stops the usual spreadsheets reading it as a formula, but the apostrophe shows, and numbers and dates are still converted. For cells that are always text, use Download XLSX.">Download CSV</button>
+        <button id="tableXlsx" class="small" type="button" title="An Excel workbook with each zone's, conduit's and asset's unique ID, in which every cell is text: nothing in it runs as a formula or turns into a number or date.">Download XLSX</button>
         <button id="drawerClose" class="small" type="button" title="Close">×</button>
       </div>
       <div id="drawerBody" class="drawer-body"></div>
@@ -227,7 +228,7 @@
     <button id="expSvg">SVG (vector image)</button>
     <button id="expPng">PNG (image)</button>
   </div>
-  <p class="fine">Visio and draw.io exports carry the shapes, names and colours; the full attribute set (SL-T vectors, boundaries, asset lists) always survives in the XML export.</p>
+  <p class="fine">Visio and draw.io exports carry the shapes, names, colours and SL-T summaries, and label each conduit with its type, which way it flows or where its security device sits, and any safety marking (a data diode also gets an arrowhead). The full attribute set (SL-T vectors, boundaries, access points, asset details) always survives in the XML export. The registers in the Tables view download as CSV or as an Excel workbook (.xlsx). Only the workbook keeps every cell as text. In the CSV, text that starts with = + - or @ gets a leading apostrophe so that it doesn't run as a formula, and numbers and dates are converted.</p>
   <button class="close" data-close>Close</button>
 </dialog>
 
